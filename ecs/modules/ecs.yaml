@@ -1,0 +1,17 @@
+Description: Sample deployment for ECS cluster.
+
+Parameters:
+  EnvironmentName:
+    Description: Describes build status in resources.
+    Type: String
+
+Resources:
+  ECSCluster:
+    Type: AWS::ECS::Cluster 
+    Properties:
+      ClusterName: !Ref EnvironmentName
+
+Outputs:
+  Cluster:
+    Description: ECS Cluster.
+    Value: !Ref ECSCluster

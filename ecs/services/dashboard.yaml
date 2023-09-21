@@ -1,0 +1,138 @@
+Description: Sample deployment of Aline Financial member dashboard.
+
+Parameters:
+  VPC:
+    Description: VPC the ECS cluster is deployed to.
+    Type: AWS::EC2::VPC::Id
+  
+  Cluster:
+    Description: ECS cluster the service will be deployed into.
+    Type: String
+
+  DesiredCount:
+    Description: The number of instances this task will run.
+    Type: Number
+    Default: 1
+
+  DashboardLoadBalancer:
+    Description: The load balancer for the member dashboard.
+    Type: String
+
+  TaskExecRole:
+    Description: Task execution role.
+    Type: String
+
+  Subnets:
+    Description: Public subnets from selected VPC.
+    Type: List<AWS::EC2::Subnet::Id>
+
+  ECSSecurityGroup:
+    Description: Describes the security groups the ECS cluster gets assigned to.
+    Type: AWS::EC2::SecurityGroup::Id
+
+  DashboardLoadBalancerSecurityGroup:
+    Description: Describes the security groups the member dashboard load balancer gets assigned to.
+    Type: AWS::EC2::SecurityGroup::Id
+
+  EcrImage:
+    Description: Describes the image to pull from the ECR repository.
+    Type: String
+
+  AppServiceHost:
+    Description: DNS of the backend service.
+    Type: String
+
+  AppApiUrl:
+    Description: URL of the backend service.
+    Type: String
+
+  LandingPortalUrl:
+    Description: URL of the landing portal.
+    Type: String
+  
+Resources:
+  Service:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref Cluster
+      LaunchType: FARGATE
+      DesiredCount: !Ref DesiredCount
+      TaskDefinition: !Ref TaskDefinition
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets: !Ref Subnets
+          SecurityGroups:
+          - !Ref ECSSecurityGroup
+          - !Ref DashboardLoadBalancerSecurityGroup
+      LoadBalancers:
+      - ContainerName: "member-dashboard"
+        ContainerPort: 4200
+        TargetGroupArn: !Ref TargetGroup
+    DependsOn:
+    - Listener
+
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      ContainerDefinitions:
+      - Name: member-dashboard
+        Image: !Ref EcrImage
+        Essential: true
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            awslogs-group: !Ref LogGroup
+            awslogs-region: us-east-1
+            awslogs-stream-prefix: skole-cf
+        PortMappings:
+        - ContainerPort: 4200
+          Protocol: tcp
+        Environment:
+        - Name: APP_SERVICE_HOST
+          Value: !Ref AppServiceHost
+        - Name: REACT_APP_API_URL
+          Value: !Ref AppApiUrl
+        - Name: LANDING_PORTAL_URL
+          Value: !Ref LandingPortalUrl
+        Cpu: 512
+        Memory: 1024
+      Family: dashboard-task
+      RequiresCompatibilities:
+      - FARGATE
+      NetworkMode: awsvpc
+      Memory: 1024
+      Cpu: 512
+      ExecutionRoleArn: !Ref TaskExecRole
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Ref AWS::StackName
+      RetentionInDays: 365
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref VPC
+      TargetType: ip
+      Port: 4200
+      Protocol: HTTP
+      Matcher:
+        HttpCode: 200-499
+      HealthCheckIntervalSeconds: 100
+      HealthCheckPath: /health
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 3
+      HealthyThresholdCount: 3
+      UnhealthyThresholdCount: 2
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref DashboardLoadBalancer
+      Port: 4200
+      Protocol: HTTP
+      DefaultActions:
+      - Type: forward
+        TargetGroupArn: !Ref TargetGroup

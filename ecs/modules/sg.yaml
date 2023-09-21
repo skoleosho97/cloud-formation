@@ -1,0 +1,121 @@
+Description: Sample security group template deployment.
+
+Parameters:
+  EnvironmentName:
+    Description: Describes build status in resources.
+    Type: String
+  
+  VPC:
+    Description: Describes the VPC the security groups will be deployed into.
+    Type: AWS::EC2::VPC::Id
+
+Resources:
+  ECSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Access to ECS cluster, services and containers.
+      SecurityGroupIngress:
+      - SourceSecurityGroupId: !Ref BackendLoadBalancerSecurityGroup
+        IpProtocol: -1
+      Tags:
+      - Key: Name
+        Value: !Sub ${EnvironmentName}-ecs-sg
+  
+  BackendLoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Access to backend load balancer. 
+      SecurityGroupIngress:
+      - FromPort: 8080
+        ToPort: 8080
+        IpProtocol: tcp
+        CidrIp: 0.0.0.0/0
+      - FromPort: 8081
+        ToPort: 8081
+        IpProtocol: tcp
+        CidrIp: 0.0.0.0/0
+      - FromPort: 8082
+        ToPort: 8082
+        IpProtocol: tcp
+        CidrIp: 0.0.0.0/0
+      - FromPort: 8083
+        ToPort: 8083
+        IpProtocol: tcp
+        CidrIp: 0.0.0.0/0
+      - FromPort: 8085
+        ToPort: 8085
+        IpProtocol: tcp
+        CidrIp: 0.0.0.0/0
+      - FromPort: 8086
+        ToPort: 8086
+        IpProtocol: tcp
+        CidrIp: 0.0.0.0/0
+      Tags:
+      - Key: Name
+        Value: !Sub ${EnvironmentName}-backend-lb-sg
+
+  LandingLoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Access to landing portal load balancer. 
+      SecurityGroupIngress:
+      - FromPort: 4000
+        ToPort: 4000
+        IpProtocol: tcp
+        CidrIp: 0.0.0.0/0
+      Tags:
+      - Key: Name
+        Value: !Sub ${EnvironmentName}-landing-lb-sg
+
+  DashboardLoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Access to member dashboard load balancer. 
+      SecurityGroupIngress:
+      - FromPort: 4200
+        ToPort: 4200
+        IpProtocol: tcp
+        CidrIp: 0.0.0.0/0
+      Tags:
+      - Key: Name
+        Value: !Sub ${EnvironmentName}-dashboard-lb-sg
+
+  AdminLoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Access to admin portal load balancer. 
+      SecurityGroupIngress:
+      - FromPort: 4001
+        ToPort: 4001
+        IpProtocol: tcp
+        CidrIp: 0.0.0.0/0
+      Tags:
+      - Key: Name
+        Value: !Sub ${EnvironmentName}-admin-lb-sg
+
+  
+Outputs:
+  ECSSecurityGroup:
+    Description: Security group for ECS cluster.
+    Value: !Ref ECSSecurityGroup
+    
+  BackendLoadBalancerSecurityGroup:
+    Description: Security group for backend load balancer.
+    Value: !Ref BackendLoadBalancerSecurityGroup
+
+  LandingLoadBalancerSecurityGroup:
+    Description: Security group for landing portal load balancer.
+    Value: !Ref LandingLoadBalancerSecurityGroup
+    
+  DashboardLoadBalancerSecurityGroup:
+    Description: Security group for the member dashboard load balancer.
+    Value: !Ref DashboardLoadBalancerSecurityGroup
+    
+  AdminLoadBalancerSecurityGroup:
+    Description: Security group for the admin portal load balancer.
+    Value: !Ref AdminLoadBalancerSecurityGroup

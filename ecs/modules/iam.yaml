@@ -1,0 +1,31 @@
+Description: Sample deployment for task execution service role.
+
+Parameters:
+  EnvironmentName:
+    Description: Describes build status in resources.
+    Type: String
+
+Resources:
+  TaskExecRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ecs-tasks.amazonaws.com
+          Action:
+          - 'sts:AssumeRole'
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      RoleName: !Sub ${EnvironmentName}-task-exec-role
+      Tags:
+      - Key: Name
+        Value: !Sub ${EnvironmentName}-task-exec-role
+  
+Outputs:
+  Role:
+    Description: Task execution role for services.
+    Value: !Ref TaskExecRole

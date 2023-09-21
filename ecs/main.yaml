@@ -1,0 +1,206 @@
+Description: Sample deployment for ECS service with proper dependencies.
+
+Resources:
+  VPC:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://skole-cloudformation.s3.amazonaws.com/ecs/modules/vpc.yaml
+      Parameters:
+        EnvironmentName: !Ref AWS::StackName
+
+  SecurityGroups:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://skole-cloudformation.s3.amazonaws.com/ecs/modules/sg.yaml
+      Parameters:
+        EnvironmentName: !Ref AWS::StackName
+        VPC: !GetAtt VPC.Outputs.VPC
+
+  LoadBalancers:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://skole-cloudformation.s3.amazonaws.com/ecs/modules/lb.yaml
+      Parameters:
+        EnvironmentName: !Ref AWS::StackName
+        VPC: !GetAtt VPC.Outputs.VPC
+        Subnets: !GetAtt VPC.Outputs.PublicSubnets
+        BackendLoadBalancerSecurityGroup: !GetAtt SecurityGroups.Outputs.BackendLoadBalancerSecurityGroup
+        LandingLoadBalancerSecurityGroup: !GetAtt SecurityGroups.Outputs.LandingLoadBalancerSecurityGroup
+        DashboardLoadBalancerSecurityGroup: !GetAtt SecurityGroups.Outputs.DashboardLoadBalancerSecurityGroup
+        AdminLoadBalancerSecurityGroup: !GetAtt SecurityGroups.Outputs.AdminLoadBalancerSecurityGroup
+
+  IAM:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://skole-cloudformation.s3.amazonaws.com/ecs/modules/iam.yaml
+      Parameters:
+        EnvironmentName: !Ref AWS::StackName
+
+  ECS:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://skole-cloudformation.s3.amazonaws.com/ecs/modules/ecs.yaml
+      Parameters:
+        EnvironmentName: !Ref AWS::StackName
+    
+  UnderwriterService:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://skole-cloudformation.s3.amazonaws.com/ecs/services/underwriter.yaml
+      Parameters:
+        VPC: !GetAtt VPC.Outputs.VPC
+        Cluster: !GetAtt ECS.Outputs.Cluster
+        BackendLoadBalancer: !GetAtt LoadBalancers.Outputs.BackendLoadBalancer
+        TaskExecRole: !GetAtt IAM.Outputs.Role
+        Subnets: !GetAtt VPC.Outputs.PublicSubnets
+        ECSSecurityGroup: !GetAtt SecurityGroups.Outputs.ECSSecurityGroup
+        BackendLoadBalancerSecurityGroup: !GetAtt SecurityGroups.Outputs.BackendLoadBalancerSecurityGroup
+        EcrImage:
+          !Join
+          - ''
+          - - '{{resolve:secretsmanager:aws_info:SecretString:account_id}}'
+            - .dkr.ecr.us-east-1.amazonaws.com/skoleosho/underwriter-microservice:latest
+
+  UserService:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://skole-cloudformation.s3.amazonaws.com/ecs/services/user.yaml
+      Parameters:
+        VPC: !GetAtt VPC.Outputs.VPC
+        Cluster: !GetAtt ECS.Outputs.Cluster
+        BackendLoadBalancer: !GetAtt LoadBalancers.Outputs.BackendLoadBalancer
+        TaskExecRole: !GetAtt IAM.Outputs.Role
+        Subnets: !GetAtt VPC.Outputs.PublicSubnets
+        ECSSecurityGroup: !GetAtt SecurityGroups.Outputs.ECSSecurityGroup
+        BackendLoadBalancerSecurityGroup: !GetAtt SecurityGroups.Outputs.BackendLoadBalancerSecurityGroup
+        EcrImage:
+          !Join
+          - ''
+          - - '{{resolve:secretsmanager:aws_info:SecretString:account_id}}'
+            - .dkr.ecr.us-east-1.amazonaws.com/skoleosho/user-microservice:latest
+    DependsOn: UnderwriterService
+
+  GatewayService:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://skole-cloudformation.s3.amazonaws.com/ecs/services/gateway.yaml
+      Parameters:
+        VPC: !GetAtt VPC.Outputs.VPC
+        Cluster: !GetAtt ECS.Outputs.Cluster
+        BackendLoadBalancer: !GetAtt LoadBalancers.Outputs.BackendLoadBalancer
+        TaskExecRole: !GetAtt IAM.Outputs.Role
+        Subnets: !GetAtt VPC.Outputs.PublicSubnets
+        ECSSecurityGroup: !GetAtt SecurityGroups.Outputs.ECSSecurityGroup
+        BackendLoadBalancerSecurityGroup: !GetAtt SecurityGroups.Outputs.BackendLoadBalancerSecurityGroup
+        EcrImage:
+          !Join
+          - ''
+          - - '{{resolve:secretsmanager:aws_info:SecretString:account_id}}'
+            - .dkr.ecr.us-east-1.amazonaws.com/skoleosho/gateway:latest
+        AppServiceHost:
+          !GetAtt LoadBalancers.Outputs.BackendLoadBalancerDns
+        LandingPortal:
+          !Join
+          - ''
+          - - http://
+            - !GetAtt LoadBalancers.Outputs.LandingLoadBalancerDns
+            - :4000
+        DashboardPortal:
+          !Join
+          - ''
+          - - http://
+            - !GetAtt LoadBalancers.Outputs.DashboardLoadBalancerDns
+            - :4200
+        AdminPortal:
+          !Join
+          - ''
+          - - http://
+            - !GetAtt LoadBalancers.Outputs.AdminLoadBalancerDns
+            - :4001
+
+  LandingPortalService:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://skole-cloudformation.s3.amazonaws.com/ecs/services/landing.yaml
+      Parameters:
+        VPC: !GetAtt VPC.Outputs.VPC
+        Cluster: !GetAtt ECS.Outputs.Cluster
+        LandingLoadBalancer: !GetAtt LoadBalancers.Outputs.LandingLoadBalancer
+        TaskExecRole: !GetAtt IAM.Outputs.Role
+        Subnets: !GetAtt VPC.Outputs.PublicSubnets
+        ECSSecurityGroup: !GetAtt SecurityGroups.Outputs.ECSSecurityGroup
+        LandingLoadBalancerSecurityGroup: !GetAtt SecurityGroups.Outputs.LandingLoadBalancerSecurityGroup
+        EcrImage:
+          !Join
+          - ''
+          - - '{{resolve:secretsmanager:aws_info:SecretString:account_id}}'
+            - .dkr.ecr.us-east-1.amazonaws.com/skoleosho/landing-portal:latest
+        MemberDashboardUrl:
+          !Join
+          - ''
+          - - http://
+            - !GetAtt LoadBalancers.Outputs.DashboardLoadBalancerDns
+            - :4200
+        AppApi:
+          !Join
+          - ''
+          - - http://
+            - !GetAtt LoadBalancers.Outputs.BackendLoadBalancerDns
+            - /api
+
+  MemberDashboardService:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://skole-cloudformation.s3.amazonaws.com/ecs/services/dashboard.yaml
+      Parameters:
+        VPC: !GetAtt VPC.Outputs.VPC
+        Cluster: !GetAtt ECS.Outputs.Cluster
+        DashboardLoadBalancer: !GetAtt LoadBalancers.Outputs.DashboardLoadBalancer
+        TaskExecRole: !GetAtt IAM.Outputs.Role
+        Subnets: !GetAtt VPC.Outputs.PublicSubnets
+        ECSSecurityGroup: !GetAtt SecurityGroups.Outputs.ECSSecurityGroup
+        DashboardLoadBalancerSecurityGroup: !GetAtt SecurityGroups.Outputs.DashboardLoadBalancerSecurityGroup
+        EcrImage:
+          !Join
+          - ''
+          - - '{{resolve:secretsmanager:aws_info:SecretString:account_id}}'
+            - .dkr.ecr.us-east-1.amazonaws.com/skoleosho/member-dashboard:latest
+        AppServiceHost:
+          !GetAtt LoadBalancers.Outputs.BackendLoadBalancerDns
+        AppApiUrl:
+          !Join
+          - ''
+          - - http://
+            - !GetAtt LoadBalancers.Outputs.BackendLoadBalancerDns
+            - :8080/api
+        LandingPortalUrl:
+          !Join
+          - ''
+          - - http://
+            - !GetAtt LoadBalancers.Outputs.LandingLoadBalancerDns
+            - :4000
+
+  AdminPortalService:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://skole-cloudformation.s3.amazonaws.com/ecs/services/admin.yaml
+      Parameters:
+        VPC: !GetAtt VPC.Outputs.VPC
+        Cluster: !GetAtt ECS.Outputs.Cluster
+        AdminLoadBalancer: !GetAtt LoadBalancers.Outputs.AdminLoadBalancer
+        TaskExecRole: !GetAtt IAM.Outputs.Role
+        Subnets: !GetAtt VPC.Outputs.PublicSubnets
+        ECSSecurityGroup: !GetAtt SecurityGroups.Outputs.ECSSecurityGroup
+        AdminLoadBalancerSecurityGroup: !GetAtt SecurityGroups.Outputs.AdminLoadBalancerSecurityGroup
+        EcrImage:
+          !Join
+          - ''
+          - - '{{resolve:secretsmanager:aws_info:SecretString:account_id}}'
+            - .dkr.ecr.us-east-1.amazonaws.com/skoleosho/admin-portal:latest
+        BaseUrl:
+          !Join
+          - ''
+          - - http://
+            - !GetAtt LoadBalancers.Outputs.BackendLoadBalancerDns
+            - :8080
+        TokenName: jwtToken

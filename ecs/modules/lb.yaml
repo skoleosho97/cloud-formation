@@ -1,0 +1,140 @@
+Description: Sample deployment for load balancers.
+
+Parameters:
+  EnvironmentName:
+    Description: Describes build status in resources.
+    Type: String
+  
+  VPC:
+    Description: Describes the VPC the security groups will be deployed into.
+    Type: AWS::EC2::VPC::Id
+
+  Subnets:
+    Description: Describes the subnets the load balancers should listen to.
+    Type: List<AWS::EC2::Subnet::Id>
+
+  BackendLoadBalancerSecurityGroup:
+    Description: Describes the security groups the backend load balancer gets assigned to.
+    Type: AWS::EC2::SecurityGroup::Id
+
+  LandingLoadBalancerSecurityGroup:
+    Description: Describes the security groups the landing load balancer gets assigned to.
+    Type: AWS::EC2::SecurityGroup::Id
+
+  DashboardLoadBalancerSecurityGroup:
+    Description: Describes the security groups the dashboard load balancer gets assigned to.
+    Type: AWS::EC2::SecurityGroup::Id
+  
+  AdminLoadBalancerSecurityGroup:
+    Description: Describes the security groups the admin load balancer gets assigned to.
+    Type: AWS::EC2::SecurityGroup::Id
+
+Resources:
+  BackendLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub ${EnvironmentName}-backend-lb
+      Subnets: !Ref Subnets
+      SecurityGroups: 
+      - !Ref BackendLoadBalancerSecurityGroup
+      Tags:
+      - Key: Name
+        Value: !Sub ${EnvironmentName}-backend-lb
+
+  BackendDefaultTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: skole-cf-backend-default
+      VpcId: !Ref VPC
+      Port: 80
+      Protocol: HTTP
+
+  LandingLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub ${EnvironmentName}-landing-lb
+      Subnets: !Ref Subnets
+      SecurityGroups: 
+      - !Ref LandingLoadBalancerSecurityGroup
+      Tags:
+      - Key: Name
+        Value: !Sub ${EnvironmentName}-landing-lb
+
+  LandingDefaultTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: skole-cf-landing-default
+      VpcId: !Ref VPC
+      Port: 81
+      Protocol: HTTP
+
+  DashboardLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub ${EnvironmentName}-dashboard-lb
+      Subnets: !Ref Subnets
+      SecurityGroups: 
+      - !Ref DashboardLoadBalancerSecurityGroup
+      Tags:
+      - Key: Name
+        Value: !Sub ${EnvironmentName}-dashboard-lb
+
+  DashboardDefaultTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: skole-cf-dashboard-default
+      VpcId: !Ref VPC
+      Port: 82
+      Protocol: HTTP
+
+  AdminLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub ${EnvironmentName}-admin-lb
+      Subnets: !Ref Subnets
+      SecurityGroups: 
+      - !Ref AdminLoadBalancerSecurityGroup
+      Tags:
+      - Key: Name
+        Value: !Sub ${EnvironmentName}-admin-lb
+
+  AdminDefaultTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: skole-cf-admin-default
+      VpcId: !Ref VPC
+      Port: 83
+      Protocol: HTTP
+
+Outputs:
+  BackendLoadBalancer:
+    Description: Backend load balancer.
+    Value: !Ref BackendLoadBalancer
+  
+  BackendLoadBalancerDns:
+    Description: Backend load balancer host name.
+    Value: !GetAtt BackendLoadBalancer.DNSName
+
+  LandingLoadBalancer:
+    Description: Landing portal load balancer.
+    Value: !Ref LandingLoadBalancer
+  
+  LandingLoadBalancerDns:
+    Description: Landing portal load balancer host name.
+    Value: !GetAtt LandingLoadBalancer.DNSName
+
+  DashboardLoadBalancer:
+    Description: Member dashboard load balancer.
+    Value: !Ref DashboardLoadBalancer
+  
+  DashboardLoadBalancerDns:
+    Description: Member dashboard load balancer host name.
+    Value: !GetAtt DashboardLoadBalancer.DNSName
+
+  AdminLoadBalancer:
+    Description: Admin portal load balancer.
+    Value: !Ref AdminLoadBalancer
+  
+  AdminLoadBalancerDns:
+    Description: Admin portal load balancer host name.
+    Value: !GetAtt AdminLoadBalancer.DNSName

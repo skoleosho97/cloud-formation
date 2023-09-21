@@ -1,0 +1,172 @@
+Description: Sample VPC Deployment
+
+Parameters:
+  EnvironmentName:
+    Description: Describes build status in resources.
+    Type: String
+
+  VpcCidr:
+    Description: The IP range for the VPC in CIDR notation.
+    Type: String
+    Default: 10.50.0.0/16
+
+  NumberOfSubnets:
+    Description: Number of Subnets to be created
+    Type: String
+    Default: 4
+  SubnetOffset:
+    Description: Offest of Subnet from CIDR
+    Type: String
+    Default: 8
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+      - Key: Name
+        Value: !Ref EnvironmentName
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    DependsOn:
+      - VPC
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Select [0, !Cidr [!Ref VpcCidr, !Ref NumberOfSubnets, !Ref SubnetOffset]]
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: Name
+        Value: !Sub ${EnvironmentName}-public-subnet-AZ1
+
+  PublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Select [1, !Cidr [!Ref VpcCidr, !Ref NumberOfSubnets, !Ref SubnetOffset]]
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: Name
+        Value: !Sub ${EnvironmentName}-public-subnet-AZ2
+
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Select [2, !Cidr [!Ref VpcCidr, !Ref NumberOfSubnets, !Ref SubnetOffset]]
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: !Sub ${EnvironmentName}-private-subnet-AZ1
+
+  PrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Select [3, !Cidr [!Ref VpcCidr, !Ref NumberOfSubnets, !Ref SubnetOffset]]
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: !Sub ${EnvironmentName}-private-subnet-AZ2
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Sub ${EnvironmentName}-public-table-route
+
+  MainPublicRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+    DependsOn: 
+    - InternetGatewayAttachment
+
+  PublicSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnetA
+  
+  PublicSubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnetB
+
+  PrivateRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Sub ${EnvironmentName}-private-route-table-1
+
+  PrivateSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      SubnetId: !Ref PrivateSubnetA
+
+  PrivateRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Sub ${EnvironmentName}-private-route-table-2
+
+  PrivateSubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable2
+      SubnetId: !Ref PrivateSubnetB
+
+Outputs:
+  VPC:
+    Description: Created VPC.
+    Value: !Ref VPC
+
+  PublicSubnets:
+    Description: List of public subnets.
+    Value: !Join [",", [!Ref PublicSubnetA, !Ref PublicSubnetB]]
+
+  PrivateSubnets:
+    Description: List of private subnets.
+    Value: !Join [",", [!Ref PrivateSubnetA, !Ref PrivateSubnetB]]
+
+  PublicSubnetA:
+    Description: Created public subnet for 1st AZ.
+    Value: !Ref PublicSubnetA
+
+  PublicSubnetB:
+    Description: Created public subnet for 2nd AZ.
+    Value: !Ref PublicSubnetB
+
+  PrivateSubnetA:
+    Description: Created private subnet for 1st AZ.
+    Value: !Ref PrivateSubnetA
+
+  PrivateSubnetB:
+    Description: Created private subnet for 2nd AZ.
+    Value: !Ref PrivateSubnetB
